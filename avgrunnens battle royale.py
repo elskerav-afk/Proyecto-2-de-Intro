@@ -3,9 +3,8 @@ from tkinter import messagebox
 import os
 
 
-
 # CLASES
-
+#zx
 class Elemento:
     #Clase base para muros, torres, unidades y base
     def __init__(self, nombre, costo, vida=100):
@@ -211,16 +210,27 @@ class Defensor(Jugador):
         self.dinero = 500
         self.base = None
         self.defensas = []
+        self.dinero_por_dano_ronda = 0
     
     def ganar_por_eliminar_unidad(self, tipo_unidad):
         #Gana dinero al eliminar una unidad enemiga
         recompensas = {
-            "Soldado": 50,
-            "Arquero": 60,
-            "Mago": 75
+            "Soldado": 80,
+            "Arquero": 150,
+            "Mago": 120
         }
         cantidad = recompensas.get(tipo_unidad, 0)
-        self.ganar_dinero(cantidad)
+        self.dinero_por_dano_ronda=self.dinero_por_dano_ronda+cantidad
+        return cantidad
+    def ganar_por_dañar_unidad(self, tipo_unidad):
+        #Gana dinero al dañar una unidad enemiga
+        recompensas = {
+            "Soldado": 30,
+            "Arquero": 60,
+            "Mago": 45
+        }
+        cantidad = recompensas.get(tipo_unidad, 0)
+        self.dinero_por_dano_ronda=self.dinero_por_dano_ronda+cantidad
         return cantidad
 
 
@@ -230,6 +240,7 @@ class Atacante(Jugador):
         self.rol = "Atacante"
         self.dinero = 500
         self.unidades = []
+        self.dinero_por_dano_ronda = 0
     
     def ganar_por_dañar_torre(self, tipo_torre):
         #Gana dinero por dañar una torre
@@ -239,7 +250,7 @@ class Atacante(Jugador):
             "Torre Mágica": 45
         }
         cantidad = recompensas.get(tipo_torre, 0)
-        self.ganar_dinero(cantidad)
+        self.dinero_por_dano_ronda=self.dinero_por_dano_ronda+cantidad
         return cantidad
     
     def ganar_por_destruir_torre(self, tipo_torre):
@@ -250,14 +261,139 @@ class Atacante(Jugador):
             "Torre Mágica": 120
         }
         cantidad = recompensas.get(tipo_torre, 0)
-        self.ganar_dinero(cantidad)
+        self.dinero_por_dano_ronda=self.dinero_por_dano_ronda+cantidad
         return cantidad
     
-    def ganar_por_dañar_base(self):
+    def ganar_por_destruir_base(self):
         #Gana dinero por dañar la base
         cantidad = 100
-        self.ganar_dinero(cantidad)
+        self.dinero_por_dano_ronda= self.dinero_por_dano_ronda+cantidad
         return cantidad
+
+
+class SistemaDinero:
+    def __init__(self):
+        self.bono_por_ronda = 100
+
+    def iniciar_ronda(self, defensor, atacante):
+        defensor.dinero = defensor.dinero + self.bono_por_ronda
+        atacante.dinero = atacante.dinero + self.bono_por_ronda
+        atacante.dinero = atacante.dinero + atacante.dinero_por_dano_ronda
+        defensor.dinero = defensor.dinero + defensor.dinero_por_dano_ronda
+        
+
+    def comprar(self, jugador, costo):
+        if jugador.dinero >= costo:
+            jugador.dinero = jugador.dinero - costo
+            return True
+        else:
+            return False
+
+    def defensor_gana_por_unidad(self, defensor, dinero_ganado):
+        defensor.dinero = defensor.dinero + dinero_ganado
+
+    def atacante_gana_por_dano(self, atacante, dano):
+        dinero_ganado = dano * 5
+        atacante.dinero_por_dano_ronda = atacante.dinero_por_dano_ronda + dinero_ganado
+
+    def defensor_gana_por_dano(self, defensor, dano):
+        dinero_ganado = dano * 5
+        defensor.dinero_por_dano_ronda = defensor.dinero_por_dano_ronda + dinero_ganado
+
+
+class TopJugadores:
+    def __init__(self):
+        self.archivo = "top_jugadores.txt"
+
+    def registrar_victoria(self, nombre, rol):
+        jugadores = self.leer_jugadores()
+        encontrado = False
+
+        for jugador in jugadores:
+            if jugador[0] == nombre:
+                if rol == "Defensor":
+                    jugador[1] = jugador[1] + 1
+                elif rol == "Atacante":
+                    jugador[2] = jugador[2] + 1
+                encontrado = True
+
+        if encontrado == False:
+            if rol == "Defensor":
+                jugadores.append([nombre, 1, 0])
+            elif rol == "Atacante":
+                jugadores.append([nombre, 0, 1])
+
+        self.guardar_jugadores(jugadores)
+
+    def leer_jugadores(self):
+        jugadores = []
+
+        if os.path.exists(self.archivo) == False:
+            return jugadores
+
+        archivo = open(self.archivo, "r")
+        lineas = archivo.readlines()
+        archivo.close()
+
+        for linea in lineas:
+            datos = linea.strip().split(",")
+            if len(datos) == 3:
+                nombre = datos[0]
+                victorias_defensor = int(datos[1])
+                victorias_atacante = int(datos[2])
+                jugadores.append([nombre, victorias_defensor, victorias_atacante])
+
+        return jugadores
+
+    def guardar_jugadores(self, jugadores):
+        archivo = open(self.archivo, "w")
+
+        for jugador in jugadores:
+            linea = f"{jugador[0]},{jugador[1]},{jugador[2]}\n"
+            archivo.write(linea)
+
+        archivo.close()
+
+    def top_defensores(self):
+        jugadores = self.leer_jugadores()
+        jugadores.sort(key=lambda jugador: jugador[1], reverse=True)
+        return jugadores[:5]
+
+    def top_atacantes(self):
+        jugadores = self.leer_jugadores()
+        jugadores.sort(key=lambda jugador: jugador[2], reverse=True)
+        return jugadores[:5]
+
+
+def mostrar_top_jugadores():
+    top = TopJugadores()
+
+    ventana_top = tk.Toplevel(ventana)
+    ventana_top.title("Top de jugadores")
+    ventana_top.geometry("450x350")
+
+    titulo = tk.Label(ventana_top, text="TOP DE JUGADORES", font=("Arial", 16, "bold"))
+    titulo.pack(pady=10)
+
+    tk.Label(ventana_top, text="Top defensores", font=("Arial", 13, "bold")).pack()
+
+    defensores = top.top_defensores()
+    if len(defensores) == 0:
+        tk.Label(ventana_top, text="No hay victorias registradas").pack()
+    else:
+        for i, jugador in enumerate(defensores, start=1):
+            texto = f"{i}. {jugador[0]} - {jugador[1]} victoria(s)"
+            tk.Label(ventana_top, text=texto).pack()
+
+    tk.Label(ventana_top, text="Top atacantes", font=("Arial", 13, "bold")).pack(pady=(15,0))
+
+    atacantes = top.top_atacantes()
+    if len(atacantes) == 0:
+        tk.Label(ventana_top, text="No hay victorias registradas").pack()
+    else:
+        for i, jugador in enumerate(atacantes, start=1):
+            texto = f"{i}. {jugador[0]} - {jugador[2]} victoria(s)"
+            tk.Label(ventana_top, text=texto).pack()
 
 
 # VARIABLES GLOBALES
@@ -272,6 +408,8 @@ matriz = [[0 for _ in range(ANCHO)] for _ in range(ALTO)]
 # Jugadores
 defensor = Defensor("Defensor 1")
 atacante = Atacante("Atacante 1")
+sistema_dinero = SistemaDinero()
+top_jugadores = TopJugadores()
 
 # Estado del juego
 fase = "defensor_base"
@@ -346,7 +484,10 @@ def dibujar_mapa():
     #Dibuja el mapa con sprites PNG desde carpeta
     canvas.delete("all")
     
-    canvas.create_image(0, 0, anchor = 'nw', image=fondo_img)
+    if fondo_img is not None:
+        canvas.create_image(0, 0, anchor = 'nw', image=fondo_img)
+    else:
+        canvas.create_rectangle(0, 0, ANCHO * TAM_CELDA, ALTO * TAM_CELDA, fill="#eeeeee", outline="")
     
     # Cuadrícula
     for fila in range(ALTO + 1):
@@ -748,10 +889,9 @@ def reiniciar_ronda():
             matriz[f][c] = 0
 
     # Resetear jugadores
-    defensor.dinero = 500
+    sistema_dinero.iniciar_ronda(defensor, atacante)
     defensor.base = None
     defensor.defensas = []
-    atacante.dinero = 500
     atacante.unidades = []
 
     # Resetear combate
@@ -776,8 +916,8 @@ def verificar_ganador_ronda():
     if defensor.base is None:
         return "atacante"
 
-    # Defensor gana si no quedan unidades atacantes
-    if len(atacante.unidades) == 0:
+    # Defensor gana si el atacante no tiene dinero, no tiene unidades y la base sigue viva
+    if atacante.dinero <= 0 and len(atacante.unidades) == 0 and defensor.base is not None:
         return "defensor"
 
     # Nadie ganó todavía
@@ -807,7 +947,8 @@ def registrar_ganador_ronda(ganador):
         ronda_actual += 1
         messagebox.showinfo("Nueva ronda",
                             f"¡Comienza la Ronda {ronda_actual}!\n"
-                            "Los jugadores reciben $500 cada uno.")
+                            "Los jugadores reciben $100 extra.\n"
+                            "Reciben además el dinero acumulado por daño de la ronda anterior.")
         reiniciar_ronda()
 
 
@@ -828,7 +969,9 @@ def terminar_partida(ganador):
     else:
         jugador_ganador = atacante
         mensaje = f"¡{atacante.nombre} (Atacante) GANÓ LA PARTIDA!"
-        
+
+    top_jugadores.registrar_victoria(jugador_ganador.nombre, jugador_ganador.rol)
+
     clave = f"{jugador_ganador.nombre} ({jugador_ganador.rol})"
     if clave in registro_victorias:
         registro_victorias[clave] += 1
@@ -934,7 +1077,7 @@ def fase_torres(msgs):
             if torre.turnos_restantes >= torre.turnos_habilidad:
                 veces = 2
                 torre.turnos_restantes = 0
-                msgs.append(f" Torre Básica usa DISPARO DOBLE sobre {objetivo.nombre}!")
+                msgs.append(f"Torre Básica usa DISPARO DOBLE sobre {objetivo.nombre}!")
             for _ in range(veces):
                 if objetivo.vida > 0:
                     objetivo.vida -= torre.daño
@@ -949,7 +1092,7 @@ def fase_torres(msgs):
                 for u in list(atacante.unidades):
                     if distancia(torre, u) <= 3:
                         u.vida -= torre.daño
-                        msgs.append(f"  {u.nombre}: -{torre.daño} vida ({max(0,u.vida)} restante)")
+                        msgs.append(f"{u.nombre}: -{torre.daño} vida ({max(0,u.vida)} restante)")
             else:
                 objetivo.vida -= torre.daño
                 msgs.append(f"Torre Pesada → {objetivo.nombre}: -{torre.daño} vida ({max(0,objetivo.vida)} restante)")
@@ -997,7 +1140,7 @@ def fase_unidades(msgs):
                 if unidad.turnos_restantes >= unidad.turnos_habilidad:
                     unidad.turnos_restantes = 0
                     daño_real = int(unidad.daño * 1.5)
-                    msgs.append(f"  {unidad.nombre} usa DAÑO EXTRA contra torre!")
+                    msgs.append(f"{unidad.nombre} usa DAÑO EXTRA contra torre!")
 
             # Soldado: cada turnos_habilidad turnos ataca dos veces
             veces = 1
@@ -1006,7 +1149,7 @@ def fase_unidades(msgs):
                 if unidad.turnos_restantes >= unidad.turnos_habilidad:
                     unidad.turnos_restantes = 0
                     veces = 2
-                    msgs.append(f"  {unidad.nombre} usa ATAQUE DOBLE!")
+                    msgs.append(f"{unidad.nombre} usa ATAQUE DOBLE!")
 
             for _ in range(veces):
                 if objetivo.vida > 0:
@@ -1014,11 +1157,6 @@ def fase_unidades(msgs):
                     # Si atacó una torre, el atacante gana dinero
                     if objetivo.tipo in ("torre_basica", "torre_pesada", "torre_magica"):
                         atacante.ganar_por_dañar_torre(objetivo.nombre)
-                    # Si atacó la base, el atacante gana dinero
-                    elif objetivo.tipo == "base":
-                        ganado = atacante.ganar_por_dañar_base()
-                        msgs.append(f"  Atacante gana ${ganado} por dañar la base")
-                    msgs.append(f"  {unidad.nombre} → {objetivo.nombre}: -{daño_real} vida ({max(0,objetivo.vida)} restante)")
         else:
             # No está adyacente: MOVERSE (velocidad = pasos por turno)
             pasos = 0
@@ -1030,7 +1168,7 @@ def fase_unidades(msgs):
                 else:
                     break
             if pasos > 0:
-                msgs.append(f"  {unidad.nombre} avanza {pasos} paso(s) hacia {objetivo.nombre}")
+                msgs.append(f"{unidad.nombre} avanza {pasos} paso(s) hacia {objetivo.nombre}")
 
     # Mago: cura al aliado con menos vida cada turnos_habilidad turnos
     for unidad in list(atacante.unidades):
@@ -1042,7 +1180,7 @@ def fase_unidades(msgs):
                 if aliados:
                     herido = min(aliados, key=lambda u: u.vida)
                     herido.vida = min(herido.vida + 40, herido.vida_maxima)
-                    msgs.append(f"  Mago cura a {herido.nombre} (+40 vida → {herido.vida})")
+                    msgs.append(f"Mago cura a {herido.nombre} (+40 vida → {herido.vida})")
 
 
 def eliminar_muertos(msgs):
@@ -1051,18 +1189,18 @@ def eliminar_muertos(msgs):
         if obj.vida <= 0:
             if obj.tipo in ("torre_basica", "torre_pesada", "torre_magica"):
                 ganado = atacante.ganar_por_destruir_torre(obj.nombre)
-                msgs.append(f"  Atacante gana ${ganado} por destruir {obj.nombre}")
-            msgs.append(f"  {obj.nombre} fue destruido!")
+                msgs.append(f"Atacante gana ${ganado} por destruir {obj.nombre}")
+            msgs.append(f"{obj.nombre} fue destruido!")
             eliminar_objeto(obj)
 
     if defensor.base is not None and defensor.base.vida <= 0:
-        msgs.append(f"  ¡BASE CENTRAL DESTRUIDA!")
+        msgs.append(f"¡BASE CENTRAL DESTRUIDA!")
         eliminar_objeto(defensor.base)
 
     for obj in list(atacante.unidades):
         if obj.vida <= 0:
             ganado = defensor.ganar_por_eliminar_unidad(obj.nombre)
-            msgs.append(f"  {obj.nombre} eliminado! Defensor gana ${ganado}")
+            msgs.append(f"{obj.nombre} eliminado! Defensor gana ${ganado}")
             eliminar_objeto(obj)
 
 
@@ -1149,7 +1287,10 @@ ventana.title("Avgrunnens Battle Royale")
 ventana.geometry("1400x900")
 ventana.state("zoomed")
 
-fondo_img = tk.PhotoImage(file='fondo.png')
+try:
+    fondo_img = tk.PhotoImage(file='fondo.png')
+except:
+    fondo_img = None
 
 # Frame superior con información
 frame_info = tk.Frame(ventana)
@@ -1190,20 +1331,24 @@ frame_botones_util = tk.Frame(frame_botones)
 frame_botones_util.pack(side=tk.RIGHT)
 
 btn_siguiente = tk.Button(frame_botones_util, text="Siguiente", command=siguiente_fase, 
-                         font=("Arial", 10, "bold"), bg="#4CAF50", fg="white", width=10)
+                         font=("Arial", 10, "bold"), bg="#4CAF50", fg="white", width=12)
 btn_siguiente.pack(side=tk.LEFT, padx=5)
 
 btn_cancelar = tk.Button(frame_botones_util, text="Cancelar", command=cancelar_elemento, 
-                        font=("Arial", 9), bg="#f44336", fg="white", width=10)
+                        font=("Arial", 9), bg="#f44336", fg="white", width=12)
 btn_cancelar.pack(side=tk.LEFT, padx=2)
 
 btn_torres = tk.Button(frame_botones_util, text="Info Torres", command=mostrar_info_torres, 
-                      font=("Arial", 9), bg="#FF9800", fg="white", width=10)
+                      font=("Arial", 9), bg="#FF9800", fg="white", width=12)
 btn_torres.pack(side=tk.LEFT, padx=2)
 
 btn_unidades = tk.Button(frame_botones_util, text="Info Unidades", command=mostrar_info_unidades, 
-                        font=("Arial", 9), bg="#2196F3", fg="white", width=10)
+                        font=("Arial", 9), bg="#2196F3", fg="white", width=12)
 btn_unidades.pack(side=tk.LEFT, padx=2)
+
+btn_top = tk.Button(frame_botones_util, text="Top", command=mostrar_top_jugadores,
+                    font=("Arial", 9), bg="#9C27B0", fg="white", width=12)
+btn_top.pack(side=tk.LEFT, padx=2)
 
 # Cargar imágenes desde carpeta
 cargar_imagenes()
