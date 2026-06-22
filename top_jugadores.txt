@@ -1,0 +1,4 @@
+Atacante 1,0,5
+Defensor 1,4,0
+elskerav,1,0
+andrelostt,1,3
