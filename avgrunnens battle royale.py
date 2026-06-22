@@ -1,6 +1,7 @@
 import tkinter as tk
 from tkinter import messagebox
 import os
+import json
 
 
 # CLASES
@@ -189,6 +190,7 @@ class Jugador:
         self.nombre = nombre
         self.rol = rol
         self.dinero = dinero
+        self.usuario = None
 
     def puede_comprar(self, costo):
         return self.dinero >= costo
@@ -211,6 +213,7 @@ class Defensor(Jugador):
         self.base = None
         self.defensas = []
         self.dinero_por_dano_ronda = 0
+        self.usuario = None
     
     def ganar_por_eliminar_unidad(self, tipo_unidad):
         #Gana dinero al eliminar una unidad enemiga
@@ -241,6 +244,7 @@ class Atacante(Jugador):
         self.dinero = 500
         self.unidades = []
         self.dinero_por_dano_ronda = 0
+        self.usuario = None
     
     def ganar_por_dañar_torre(self, tipo_torre):
         #Gana dinero por dañar una torre (reducido para equilibrar)
@@ -256,16 +260,16 @@ class Atacante(Jugador):
     def ganar_por_destruir_torre(self, tipo_torre):
         #Gana dinero por destruir una torre (reducido para equilibrar)
         recompensas = {
-            "Torre Básica": 50,
-            "Torre Pesada": 100,
-            "Torre Mágica": 75
+            "Torre Básica": 80,
+            "Torre Pesada": 150,
+            "Torre Mágica": 120
         }
         cantidad = recompensas.get(tipo_torre, 0)
         self.dinero_por_dano_ronda=self.dinero_por_dano_ronda+cantidad
         return cantidad
     
     def ganar_por_destruir_base(self):
-        #Gana dinero por dañar la base
+        #Gana dinero por destruir la base
         cantidad = 100
         self.dinero_por_dano_ronda= self.dinero_por_dano_ronda+cantidad
         return cantidad
@@ -299,6 +303,88 @@ class SistemaDinero:
     def defensor_gana_por_dano(self, defensor, dano):
         dinero_ganado = dano * 5
         defensor.dinero_por_dano_ronda = defensor.dinero_por_dano_ronda + dinero_ganado
+
+
+class GestorUsuarios:
+    def __init__(self):
+        self.archivo = "usuarios.json"
+        self.cargar_o_crear()
+
+    def cargar_o_crear(self):
+        if not os.path.exists(self.archivo):
+            with open(self.archivo, "w") as f:
+                json.dump({}, f)
+
+    def usuario_existe(self, usuario):
+        with open(self.archivo, "r") as f:
+            usuarios = json.load(f)
+        return usuario in usuarios
+
+    def registrar(self, usuario, contraseña):
+        with open(self.archivo, "r") as f:
+            usuarios = json.load(f)
+        
+        if usuario in usuarios:
+            return False
+        
+        usuarios[usuario] = {
+            "contraseña": contraseña,
+            "victorias_defensor": 0,
+            "victorias_atacante": 0
+        }
+        
+        with open(self.archivo, "w") as f:
+            json.dump(usuarios, f, indent=2)
+        return True
+
+    def verificar(self, usuario, contraseña):
+        with open(self.archivo, "r") as f:
+            usuarios = json.load(f)
+        
+        if usuario not in usuarios:
+            return False
+        
+        return usuarios[usuario]["contraseña"] == contraseña
+
+    def obtener_stats(self, usuario):
+        with open(self.archivo, "r") as f:
+            usuarios = json.load(f)
+        
+        if usuario not in usuarios:
+            return None
+        
+        return usuarios[usuario]
+
+    def actualizar_victoria(self, usuario, rol):
+        with open(self.archivo, "r") as f:
+            usuarios = json.load(f)
+        
+        if usuario not in usuarios:
+            return False
+        
+        if rol == "Defensor":
+            usuarios[usuario]["victorias_defensor"] += 1
+        elif rol == "Atacante":
+            usuarios[usuario]["victorias_atacante"] += 1
+        
+        with open(self.archivo, "w") as f:
+            json.dump(usuarios, f, indent=2)
+        return True
+
+    def obtener_ranking(self):
+        with open(self.archivo, "r") as f:
+            usuarios = json.load(f)
+        
+        ranking = []
+        for usuario, data in usuarios.items():
+            ranking.append({
+                "usuario": usuario,
+                "victorias_defensor": data["victorias_defensor"],
+                "victorias_atacante": data["victorias_atacante"],
+                "total": data["victorias_defensor"] + data["victorias_atacante"]
+            })
+        
+        return ranking
 
 
 class TopJugadores:
@@ -365,35 +451,223 @@ class TopJugadores:
         return jugadores[:5]
 
 
+def mostrar_pantalla_login():
+    # Muestra pantalla de login/registro
+    frame_juego.pack_forget()
+    frame_inicio.pack_forget()
+    frame_login.pack(fill=tk.BOTH, expand=True)
+    canvas_login.bind("<Configure>", lambda e: _redibujar_login())
+    _redibujar_login()
+
+
+def _redibujar_login():
+    # Redibuja la pantalla de login
+    canvas_login.delete("all")
+    ancho = canvas_login.winfo_width() or 1400
+    alto = canvas_login.winfo_height() or 900
+    
+    # Fondo
+    if fondo_inicio_img is not None:
+        canvas_login.create_image(0, 0, anchor="nw", image=fondo_inicio_img)
+    else:
+        canvas_login.create_rectangle(0, 0, ancho, alto, fill=BG, outline="")
+    
+    cx = ancho // 2
+    cy = alto // 2
+    
+    # Título
+    canvas_login.create_text(cx, cy - 150,
+                            text="Avgrunnens\nBattle Royale",
+                            font=("Arial", 36, "bold"), fill="white",
+                            justify="center")
+    
+    # Label Usuario
+    canvas_login.create_text(cx - 120, cy - 20,
+                            text="Usuario:", font=("Arial", 12, "bold"), fill="white")
+    entry_usuario.pack_forget()
+    canvas_login.create_window(cx + 50, cy - 20, window=entry_usuario, width=150)
+    
+    # Label Contraseña
+    canvas_login.create_text(cx - 120, cy + 20,
+                            text="Contraseña:", font=("Arial", 12, "bold"), fill="white")
+    entry_password.pack_forget()
+    canvas_login.create_window(cx + 50, cy + 20, window=entry_password, width=150)
+    
+    # Botones
+    estilo_btn = {
+        "font": ("Arial", 12, "bold"),
+        "bg": "#2c2c2c",
+        "fg": "white",
+        "activebackground": "#444444",
+        "activeforeground": "white",
+        "relief": tk.FLAT,
+        "bd": 0,
+        "width": 15,
+        "cursor": "hand2",
+    }
+    
+    btn_iniciar = tk.Button(canvas_login, text="Iniciar Sesión",
+                            command=iniciar_sesion, **estilo_btn)
+    canvas_login.create_window(cx - 80, cy + 80, window=btn_iniciar)
+    
+    btn_registrar = tk.Button(canvas_login, text="Registrarse",
+                             command=registrarse, **estilo_btn)
+    canvas_login.create_window(cx + 80, cy + 80, window=btn_registrar)
+    
+    btn_volver = tk.Button(canvas_login, text="Volver", command=mostrar_pantalla_inicio,
+                          **estilo_btn)
+    canvas_login.create_window(cx, cy + 150, window=btn_volver)
+
+
+def iniciar_sesion():
+    global usuario_defensor, usuario_atacante
+    
+    usuario = entry_usuario.get()
+    contraseña = entry_password.get()
+    
+    if not usuario or not contraseña:
+        messagebox.showerror("Error", "Completa todos los campos")
+        return
+    
+    if not gestor_usuarios.verificar(usuario, contraseña):
+        messagebox.showerror("Error", "Usuario o contraseña incorrectos")
+        return
+    
+    # Primer jugador (Defensor)
+    if usuario_defensor is None:
+        usuario_defensor = usuario
+        defensor.nombre = usuario
+
+        entry_usuario.delete(0, tk.END)
+        entry_password.delete(0, tk.END)
+
+        messagebox.showinfo(
+            "Defensor registrado",
+            f"{usuario} será el Defensor.\n\nAhora inicia sesión como Atacante."
+        )
+
+    # Segundo jugador (Atacante)
+    elif usuario_atacante is None:
+
+        if usuario == usuario_defensor:
+            messagebox.showerror(
+                "Error",
+                "El atacante debe ser un usuario diferente al defensor."
+            )
+            return
+
+        usuario_atacante = usuario
+        atacante.nombre = usuario
+
+        entry_usuario.delete(0, tk.END)
+        entry_password.delete(0, tk.END)
+
+        messagebox.showinfo(
+            "Atacante registrado",
+            f"{usuario} será el Atacante.\n\n¡Comienza la partida!"
+        )
+
+        iniciar_juego()
+    
+    
+
+
+def registrarse():
+    usuario = entry_usuario.get()
+    contraseña = entry_password.get()
+    
+    if not usuario or not contraseña:
+        messagebox.showerror("Error", "Completa todos los campos")
+        return
+    
+    if gestor_usuarios.registrar(usuario, contraseña):
+        messagebox.showinfo("Éxito", f"Usuario {usuario} registrado correctamente")
+        entry_usuario.delete(0, tk.END)
+        entry_password.delete(0, tk.END)
+    else:
+        messagebox.showerror("Error", "El usuario ya existe")
+
+
 def mostrar_top_jugadores():
-    top = TopJugadores()
-
+    gestor = GestorUsuarios()
+    ranking = gestor.obtener_ranking()
+    ranking.sort(key=lambda x: x["total"], reverse=True)
+    
     ventana_top = tk.Toplevel(ventana)
-    ventana_top.title("Top de jugadores")
-    ventana_top.geometry("450x350")
-
-    titulo = tk.Label(ventana_top, text="TOP DE JUGADORES", font=("Arial", 16, "bold"))
-    titulo.pack(pady=10)
-
-    tk.Label(ventana_top, text="Top defensores", font=("Arial", 13, "bold")).pack()
-
-    defensores = top.top_defensores()
-    if len(defensores) == 0:
-        tk.Label(ventana_top, text="No hay victorias registradas").pack()
-    else:
-        for i, jugador in enumerate(defensores, start=1):
-            texto = f"{i}. {jugador[0]} - {jugador[1]} victoria(s)"
-            tk.Label(ventana_top, text=texto).pack()
-
-    tk.Label(ventana_top, text="Top atacantes", font=("Arial", 13, "bold")).pack(pady=(15,0))
-
-    atacantes = top.top_atacantes()
-    if len(atacantes) == 0:
-        tk.Label(ventana_top, text="No hay victorias registradas").pack()
-    else:
-        for i, jugador in enumerate(atacantes, start=1):
-            texto = f"{i}. {jugador[0]} - {jugador[2]} victoria(s)"
-            tk.Label(ventana_top, text=texto).pack()
+    ventana_top.title("Top de Jugadores")
+    ventana_top.geometry("600x600")
+    ventana_top.configure(bg=BG)
+    
+    # Canvas para el fondo
+    canvas_top = tk.Canvas(ventana_top, bg=BG, highlightthickness=0)
+    canvas_top.pack(fill=tk.BOTH, expand=True)
+    
+    # Cargar fondo si existe
+    fondo_top_img = None
+    try:
+        ruta_fondo = os.path.join("imagenes", "fondo", "inicio.png")
+        if os.path.exists(ruta_fondo):
+            fondo_top_img = tk.PhotoImage(file=ruta_fondo)
+    except:
+        fondo_top_img = None
+    
+    def dibujar():
+        canvas_top.delete('all')
+        w = canvas_top.winfo_width() or 600
+        h = canvas_top.winfo_height() or 600
+        
+        if fondo_top_img is not None:
+            canvas_top.create_image(w//2, h//2, image=fondo_top_img)
+        
+        canvas_top.create_text(
+            w//2, 40,
+            text='Top 10 Jugadores',
+            fill='white',
+            font=('Arial', 32, 'bold')
+        )
+        
+        colores = ["#FFD700", "#C0C0C0", "#CD7F32", "white", "white", "#E0E0E0", "#E0E0E0", "#E0E0E0", "#E0E0E0", "#E0E0E0"]
+        y = 100
+        
+        for i in range(min(10, len(ranking))):
+            jugador = ranking[i]
+            color = colores[i] if i < len(colores) else "white"
+            
+            canvas_top.create_rectangle(
+                w // 2 - 250, y - 20,
+                w // 2 + 250, y + 20,
+                fill='#000000',
+                stipple='gray25',
+                outline=''
+            )
+            
+            canvas_top.create_text(
+                w // 2 - 200, y,
+                text=f'{i+1}.',
+                fill=color,
+                font=('Arial', 14, 'bold'),
+                anchor='w'
+            )
+            
+            canvas_top.create_text(
+                w // 2 - 150, y,
+                text=f'{jugador["usuario"]}',
+                fill=color,
+                font=('Arial', 12, 'bold'),
+                anchor='w'
+            )
+            
+            canvas_top.create_text(
+                w // 2 + 100, y,
+                text=f'D:{jugador["victorias_defensor"]} A:{jugador["victorias_atacante"]}',
+                fill=color,
+                font=('Arial', 11),
+                anchor='e'
+            )
+            
+            y += 50
+    
+    canvas_top.bind('<Configure>', lambda e: dibujar())
 
 
 # VARIABLES GLOBALES
@@ -405,6 +679,11 @@ TAM_CELDA = 50
 # Matriz: 0=vacío, 1=muro, 2=torre, 3=unidad, 4=base
 matriz = [[0 for _ in range(ANCHO)] for _ in range(ALTO)]
 
+# Gestor de usuarios
+gestor_usuarios = GestorUsuarios()
+usuario_defensor = None
+usuario_atacante = None
+
 # Jugadores
 defensor = Defensor("Defensor 1")
 atacante = Atacante("Atacante 1")
@@ -415,6 +694,7 @@ top_jugadores = TopJugadores()
 fase = "defensor_base"
 elemento_actual = None
 tipo_elemento_actual = None
+modo_borrar = False
 
 # ── SISTEMA DE RONDAS ──────────────────────────────────────────
 victorias_defensor = 0
@@ -480,7 +760,6 @@ def cargar_imagenes():
         if not imagen_cargada:
             imagenes[elemento] = None
                 
-
 
 
 # FUNCIONES DEL JUEGO
@@ -634,7 +913,9 @@ def crear_botones():
 
 def seleccionar_elemento(tipo, subtipo):
     #Selecciona el tipo de elemento a colocar
-    global elemento_actual, tipo_elemento_actual
+    global elemento_actual, tipo_elemento_actual, modo_borrar
+    
+    modo_borrar = False
     
     costos = {
         "Muro": 50,
@@ -669,20 +950,28 @@ def seleccionar_elemento(tipo, subtipo):
     label_estado.config(fg="green")
 
 
-def cancelar_elemento():
-    #Cancela la colocación actual
-    global elemento_actual, tipo_elemento_actual
+def activar_borrar():
+    #Activa el modo de borrar elementos
+    global elemento_actual, tipo_elemento_actual, modo_borrar
+    
     elemento_actual = None
     tipo_elemento_actual = None
+    modo_borrar = True
+    label_estado.config(text="Modo BORRAR - Haz clic en un elemento para borrarlo", fg="#FF6B6B")
+
+
+def cancelar_elemento():
+    #Cancela la colocación actual
+    global elemento_actual, tipo_elemento_actual, modo_borrar
+    elemento_actual = None
+    tipo_elemento_actual = None
+    modo_borrar = False
     label_estado.config(text="")
 
 
 def on_canvas_click(event):
     #Maneja los clics en el canvas
-    global elemento_actual, tipo_elemento_actual
-    if elemento_actual is None:
-        messagebox.showwarning("Aviso", "Primero selecciona qué colocar")
-        return
+    global elemento_actual, tipo_elemento_actual, modo_borrar
     
     col = event.x // TAM_CELDA
     fila = event.y // TAM_CELDA
@@ -690,6 +979,61 @@ def on_canvas_click(event):
     # Validar límites
     if fila >= ALTO or col >= ANCHO or fila < 0 or col < 0:
         messagebox.showerror("Error", "Haz clic dentro del mapa")
+        return
+    
+    # Modo borrar
+    if modo_borrar:
+        if (fila, col) not in objetos_en_mapa:
+            messagebox.showerror("Error", "No hay nada que borrar en esa celda")
+            return
+        
+        objeto = objetos_en_mapa[(fila, col)]
+        
+        # No se puede borrar la base
+        if objeto.tipo == "base":
+            messagebox.showerror("Error", "No puedes borrar la base")
+            return
+        
+        # Devolver dinero según el elemento
+        if objeto.tipo == "muro":
+            if fase == "defensor_defensas":
+                defensor.ganar_dinero(50)
+                label_dinero.config(text=f"Dinero Defensor: ${defensor.dinero}")
+        elif objeto.tipo.startswith("torre"):
+            costos_torres = {
+                "torre_basica": 100,
+                "torre_pesada": 200,
+                "torre_magica": 150
+            }
+            costo = costos_torres.get(objeto.tipo, 0)
+            if fase == "defensor_defensas":
+                defensor.ganar_dinero(costo)
+                label_dinero.config(text=f"Dinero Defensor: ${defensor.dinero}")
+                if objeto in defensor.defensas:
+                    defensor.defensas.remove(objeto)
+        elif objeto.tipo in ["soldado", "arquero", "mago"]:
+            costos_unidades = {
+                "soldado": 75,
+                "arquero": 100,
+                "mago": 120
+            }
+            costo = costos_unidades.get(objeto.tipo, 0)
+            if fase == "atacante_unidades":
+                atacante.ganar_dinero(costo)
+                label_dinero.config(text=f"Dinero Atacante: ${atacante.dinero}")
+                if objeto in atacante.unidades:
+                    atacante.unidades.remove(objeto)
+        
+        del objetos_en_mapa[(fila, col)]
+        matriz[fila][col] = 0
+        modo_borrar = False
+        label_estado.config(text="")
+        dibujar_mapa()
+        return
+    
+    # Modo colocación normal
+    if elemento_actual is None:
+        messagebox.showwarning("Aviso", "Primero selecciona qué colocar")
         return
     
     # Validar que esté vacío
@@ -798,25 +1142,39 @@ def on_canvas_right_click(event):
 
 def mostrar_info_torres():
     #Muestra información detallada de todas las torres
-    info = "TORRES DISPONIBLES\n\n"
-    torres = [TorreBasica(), TorrePesada(), TorreMagica()]
-    for torre in torres:
+    info = "INFORMACIÓN DE TORRES:\n\n"
+    
+    torres_info = [
+        TorreBasica(),
+        TorrePesada(),
+        TorreMagica()
+    ]
+    
+    for torre in torres_info:
         info += torre.obtener_info() + "\n\n"
-    messagebox.showinfo("Información de Torres", info)
+    
+    messagebox.showinfo("Info Torres", info)
 
 
 def mostrar_info_unidades():
     #Muestra información detallada de todas las unidades
-    info = "UNIDADES DISPONIBLES\n\n"
-    unidades = [Soldado(), Arquero(), Mago()]
-    for unidad in unidades:
+    info = "INFORMACIÓN DE UNIDADES:\n\n"
+    
+    unidades_info = [
+        Soldado(),
+        Arquero(),
+        Mago()
+    ]
+    
+    for unidad in unidades_info:
         info += unidad.obtener_info() + "\n\n"
-    messagebox.showinfo("Información de Unidades", info)
+    
+    messagebox.showinfo("Info Unidades", info)
 
 
 def siguiente_fase():
     #Avanza a la siguiente fase
-    global fase
+    global fase, modo_borrar
     
     if fase == "defensor_base":
         if defensor.base is None:
@@ -853,7 +1211,6 @@ ATACANTE:
 Presiona "Iniciar Combate" para ver la batalla.
         """
         messagebox.showinfo("¡Listo!", resumen)
-        # Cambiar a fase combate (con global ya declarado arriba)
         fase = "combate"
         cancelar_elemento()
         actualizar_labels()
@@ -869,11 +1226,9 @@ Presiona "Iniciar Combate" para ver la batalla.
     dibujar_mapa()
 
 
-# ── FUNCIONES DEL SISTEMA DE RONDAS ───────────────────────────
-
 def reiniciar_ronda():
     global fase, elemento_actual, tipo_elemento_actual, objetos_en_mapa, matriz
-    global turno_combate, log_combate, combate_en_curso
+    global turno_combate, log_combate, combate_en_curso, modo_borrar
 
     # Borrar el mapa
     objetos_en_mapa = {}
@@ -881,8 +1236,10 @@ def reiniciar_ronda():
         for c in range(ANCHO):
             matriz[f][c] = 0
 
-    # Resetear jugadores
+    # Dar bono de ronda + dinero acumulado por daño
     sistema_dinero.iniciar_ronda(defensor, atacante)
+    defensor.dinero_por_dano_ronda = 0
+    atacante.dinero_por_dano_ronda = 0
     defensor.base = None
     defensor.defensas = []
     atacante.unidades = []
@@ -891,6 +1248,7 @@ def reiniciar_ronda():
     turno_combate = 0
     log_combate = []
     combate_en_curso = False
+    modo_borrar = False
 
     # Volver al inicio
     fase = "defensor_base"
@@ -904,20 +1262,11 @@ def reiniciar_ronda():
     dibujar_mapa()
 
 
-def verificar_ganador_ronda():
-    # Atacante gana si destruyó la base
-    if defensor.base is None:
+def verificar_ganador_partida():
+    if victorias_defensor == 2:
+        return "defensor"
+    if victorias_atacante == 2:
         return "atacante"
-
-    # Defensor gana si no quedan unidades enemigas (aunque sea por torres)
-    if len(atacante.unidades) == 0 and defensor.base is not None:
-        return "defensor"
-
-    # Defensor gana si el atacante no tiene dinero, no tiene unidades y la base sigue viva
-    if atacante.dinero <= 0 and len(atacante.unidades) == 0 and defensor.base is not None:
-        return "defensor"
-
-    # Nadie ganó todavía
     return None
 
 
@@ -949,27 +1298,28 @@ def registrar_ganador_ronda(ganador):
         reiniciar_ronda()
 
 
-def verificar_ganador_partida():
-    if victorias_defensor == 2:
-        return "defensor"
-    if victorias_atacante == 2:
-        return "atacante"
-    return None
-
-
 def terminar_partida(ganador):
     global registro_victorias
 
     if ganador == "defensor":
         jugador_ganador = defensor
-        mensaje = f"¡{defensor.nombre} (Defensor) GANÓ LA PARTIDA!"
+        nombre_ganador = usuario_defensor if usuario_defensor else defensor.nombre
+        mensaje = f"¡{nombre_ganador} (Defensor) GANÓ LA PARTIDA!"
     else:
         jugador_ganador = atacante
-        mensaje = f"¡{atacante.nombre} (Atacante) GANÓ LA PARTIDA!"
+        nombre_ganador = usuario_atacante if usuario_atacante else atacante.nombre
+        mensaje = f"¡{nombre_ganador} (Atacante) GANÓ LA PARTIDA!"
 
-    top_jugadores.registrar_victoria(jugador_ganador.nombre, jugador_ganador.rol)
+    # Registrar en top_jugadores.txt
+    top_jugadores.registrar_victoria(nombre_ganador, jugador_ganador.rol)
 
-    clave = f"{jugador_ganador.nombre} ({jugador_ganador.rol})"
+    # Registrar en usuarios.json (sistema de login)
+    if ganador == "defensor" and usuario_defensor:
+        gestor_usuarios.actualizar_victoria(usuario_defensor, "Defensor")
+    elif ganador == "atacante" and usuario_atacante:
+        gestor_usuarios.actualizar_victoria(usuario_atacante, "Atacante")
+
+    clave = f"{nombre_ganador} ({jugador_ganador.rol})"
     if clave in registro_victorias:
         registro_victorias[clave] += 1
     else:
@@ -981,12 +1331,10 @@ def terminar_partida(ganador):
                         f"Resultado: Defensor {victorias_defensor} - Atacante {victorias_atacante}\n\n"
                         f"Registro de victorias:\n{historial}")
 
-    # Preguntar si quieren jugar otra partida
     jugar_otra = messagebox.askyesno("¿Otra partida?", "¿Quieren jugar una nueva partida?")
     if jugar_otra:
         reiniciar_partida_completa()
     else:
-        # Volver a la pantalla de inicio
         reiniciar_partida_completa()
         mostrar_pantalla_inicio()
 
@@ -995,37 +1343,38 @@ def reiniciar_partida_completa():
     #Reinicia todo para una nueva partida desde cero
     global victorias_defensor, victorias_atacante, resultado_rondas, ronda_actual
     global fase, elemento_actual, tipo_elemento_actual, objetos_en_mapa, matriz
-    global turno_combate, log_combate, combate_en_curso
+    global turno_combate, log_combate, combate_en_curso, modo_borrar
+    global usuario_defensor, usuario_atacante
 
-    # Resetear marcador y rondas
     victorias_defensor = 0
     victorias_atacante = 0
     resultado_rondas = []
     ronda_actual = 1
 
-    # Resetear dinero de jugadores al inicial
     defensor.dinero = 500
     atacante.dinero = 500
     defensor.dinero_por_dano_ronda = 0
     atacante.dinero_por_dano_ronda = 0
 
-    # Limpiar mapa
     objetos_en_mapa = {}
     for f in range(ALTO):
         for c in range(ANCHO):
             matriz[f][c] = 0
 
-    # Resetear jugadores
     defensor.base = None
     defensor.defensas = []
     atacante.unidades = []
 
-    # Resetear combate
     turno_combate = 0
     log_combate = []
     combate_en_curso = False
+    modo_borrar = False
 
-    # Volver al inicio
+    usuario_defensor = None
+    usuario_atacante = None
+    defensor.nombre = "Defensor 1"
+    atacante.nombre = "Atacante 1"
+
     fase = "defensor_base"
     elemento_actual = None
     tipo_elemento_actual = None
@@ -1037,7 +1386,18 @@ def reiniciar_partida_completa():
     dibujar_mapa()
 
 
-# ── SISTEMA DE COMBATE ANIMADO ─────────────────────────────────
+def verificar_ganador_ronda():
+    # Atacante gana si destruyó la base
+    if defensor.base is None:
+        return "atacante"
+
+    # Defensor gana si no quedan unidades enemigas
+    if len(atacante.unidades) == 0 and defensor.base is not None:
+        return "defensor"
+
+    # Nadie ganó todavía
+    return None
+
 
 def distancia(a, b):
     #Distancia en celdas entre dos objetos
@@ -1076,7 +1436,6 @@ def mover_hacia(unidad, objetivo):
 
     for nf, nc in candidatos:
         if 0 <= nf < ALTO and 0 <= nc < ANCHO and matriz[nf][nc] == 0:
-            # Mover la unidad
             del objetos_en_mapa[(f_act, c_act)]
             matriz[f_act][c_act] = 0
             unidad.fila = nf
@@ -1101,6 +1460,8 @@ def eliminar_objeto(obj):
     if obj.tipo == "base":
         defensor.base = None
 
+
+# ── FASES DE COMBATE ───────────────────────────────────────────
 
 def fase_torres(msgs):
     #Las torres atacan a las unidades más cercanas dentro de su alcance
@@ -1133,7 +1494,6 @@ def fase_torres(msgs):
             for _ in range(veces):
                 if objetivo.vida > 0:
                     objetivo.vida -= torre.daño
-                    # Defensor gana dinero por dañar la unidad
                     defensor.ganar_por_dañar_unidad(objetivo.nombre)
                     msgs.append(f"Torre Básica → {objetivo.nombre}: -{torre.daño} vida ({max(0,objetivo.vida)} restante)")
 
@@ -1146,12 +1506,10 @@ def fase_torres(msgs):
                 for u in list(atacante.unidades):
                     if distancia(torre, u) <= 3:
                         u.vida -= torre.daño
-                        # Defensor gana dinero por dañar cada unidad en área
                         defensor.ganar_por_dañar_unidad(u.nombre)
                         msgs.append(f"{u.nombre}: -{torre.daño} vida ({max(0,u.vida)} restante)")
             else:
                 objetivo.vida -= torre.daño
-                # Defensor gana dinero por dañar la unidad
                 defensor.ganar_por_dañar_unidad(objetivo.nombre)
                 msgs.append(f"Torre Pesada → {objetivo.nombre}: -{torre.daño} vida ({max(0,objetivo.vida)} restante)")
 
@@ -1159,7 +1517,6 @@ def fase_torres(msgs):
         elif torre.tipo == "torre_magica":
             torre.turnos_restantes += 1
             objetivo.vida -= torre.daño
-            # Defensor gana dinero por dañar la unidad
             defensor.ganar_por_dañar_unidad(objetivo.nombre)
             msgs.append(f"Torre Mágica → {objetivo.nombre}: -{torre.daño} vida ({max(0,objetivo.vida)} restante)")
             if torre.turnos_restantes >= torre.turnos_habilidad:
@@ -1217,6 +1574,7 @@ def fase_unidades(msgs):
                     # Si atacó una torre, el atacante gana dinero
                     if objetivo.tipo in ("torre_basica", "torre_pesada", "torre_magica"):
                         atacante.ganar_por_dañar_torre(objetivo.nombre)
+                    msgs.append(f"{unidad.nombre} → {objetivo.nombre}: -{daño_real} vida ({max(0,objetivo.vida)} restante)")
         else:
             # No está adyacente: MOVERSE (velocidad = pasos por turno)
             pasos = 0
@@ -1265,8 +1623,8 @@ def eliminar_muertos(msgs):
 
 
 def iniciar_combate():
-    #Arranca la animación de combate. Se llama al presionar el botón.
     global combate_en_curso, turno_combate, log_combate
+    #Inicia la fase de combate automático
 
     # Deshabilitar el botón para que no se pueda presionar dos veces
     limpiar_botones()
@@ -1346,7 +1704,7 @@ ventana = tk.Tk()
 ventana.title("Avgrunnens Battle Royale")
 ventana.geometry("1400x900")
 ventana.state("zoomed")
-# Fondo oscuro (no negro puro) para toda la ventana
+# Fondo oscuro para toda la ventana
 BG = "#1a1a1a"
 ventana.configure(bg=BG)
 
@@ -1381,6 +1739,7 @@ except:
 def mostrar_pantalla_inicio():
     #Muestra la pantalla de inicio y oculta el juego
     frame_juego.pack_forget()
+    frame_login.pack_forget()
     frame_inicio.pack(fill=tk.BOTH, expand=True)
     # Forzar que la ventana calcule su tamaño real antes de dibujar
     ventana.update_idletasks()
@@ -1412,7 +1771,7 @@ def _redibujar_inicio():
                                    justify="center")
         cy = alto // 2
 
-    # Estilo monocromático para los botones de inicio
+    # Estilo de los botones de inicio
     estilo_btn = {
         "font": ("Arial", 14, "bold"),
         "bg": "#2c2c2c",
@@ -1424,7 +1783,7 @@ def _redibujar_inicio():
         "width": 18,
         "cursor": "hand2",
     }
-    btn_jugar = tk.Button(canvas_inicio, text="JUGAR", command=iniciar_juego, **estilo_btn)
+    btn_jugar = tk.Button(canvas_inicio, text="JUGAR", command=mostrar_pantalla_login, **estilo_btn)
     canvas_inicio.create_window(cx, cy, window=btn_jugar)
 
     btn_top_inicio = tk.Button(canvas_inicio, text="Top Jugadores",
@@ -1432,16 +1791,26 @@ def _redibujar_inicio():
     canvas_inicio.create_window(cx, cy + 60, window=btn_top_inicio)
 
     btn_salir = tk.Button(canvas_inicio, text="Salir",
-                          command=ventana.quit, **estilo_btn)
+                          command=lambda: ventana.destroy(), **estilo_btn)
     canvas_inicio.create_window(cx, cy + 120, window=btn_salir)
 
 def iniciar_juego():
     #Oculta el inicio y muestra el juego
     frame_inicio.pack_forget()
+    frame_login.pack_forget()
     frame_juego.pack(fill=tk.BOTH, expand=True)
     actualizar_labels()
     crear_botones()
     dibujar_mapa()
+
+# ── PANTALLA DE LOGIN ──────────────────────────────────────────
+
+frame_login = tk.Frame(ventana, bg=BG)
+canvas_login = tk.Canvas(frame_login, bg=BG, highlightthickness=0)
+canvas_login.pack(fill=tk.BOTH, expand=True)
+
+entry_usuario = tk.Entry(canvas_login, font=("Arial", 12), bg="#333333", fg="white", insertbackground="white")
+entry_password = tk.Entry(canvas_login, font=("Arial", 12), bg="#333333", fg="white", insertbackground="white", show="*")
 
 # ── FRAME DEL JUEGO ────────────────────────────────────────────
 
@@ -1509,6 +1878,10 @@ btn_cancelar = tk.Button(frame_botones_util, text="Cancelar", command=cancelar_e
                          **ESTILO_BTN_UTIL)
 btn_cancelar.pack(side=tk.LEFT, padx=2)
 
+btn_borrar = tk.Button(frame_botones_util, text="Borrar", command=activar_borrar,
+                       **ESTILO_BTN_UTIL)
+btn_borrar.pack(side=tk.LEFT, padx=2)
+
 btn_torres = tk.Button(frame_botones_util, text="Info Torres", command=mostrar_info_torres,
                        **ESTILO_BTN_UTIL)
 btn_torres.pack(side=tk.LEFT, padx=2)
@@ -1517,6 +1890,10 @@ btn_unidades = tk.Button(frame_botones_util, text="Info Unidades", command=mostr
                          **ESTILO_BTN_UTIL)
 btn_unidades.pack(side=tk.LEFT, padx=2)
 
+btn_salir_juego = tk.Button(frame_botones_util, text="Salir",
+                            command=lambda: [reiniciar_partida_completa(), mostrar_pantalla_inicio()],
+                            **ESTILO_BTN_UTIL)
+btn_salir_juego.pack(side=tk.LEFT, padx=2)
 
 
 # Cargar imágenes desde carpeta
