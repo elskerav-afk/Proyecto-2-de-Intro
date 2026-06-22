@@ -4,6 +4,46 @@ import os
 import json
 
 
+
+# SISTEMA DE FACCIONES
+
+
+FACCIONES = {
+    "medieval": {
+        "nombre": "Medieval",
+        "descripcion": "El reino clásico de acero y piedra",
+        "color_base":    "#8B4513",   # marrón castillo
+        "color_muro":    "#A0A0A0",   # gris piedra
+        "color_torre":   "#C0A060",   # dorado antiguo
+        "color_unidad":  "#4682B4",   # azul real
+        "borde_color":   "#DAA520",
+    },
+    "oscuro": {
+        "nombre": "Oscuro",
+        "descripcion": "Brujas, ocultismo y simbolismos arcanos",
+        "color_base":    "#2D0040",   # púrpura oscuro
+        "color_muro":    "#1A1A2E",   # negro azulado
+        "color_torre":   "#6A0DAD",   # violeta
+        "color_unidad":  "#8B0000",   # rojo sangre
+        "borde_color":   "#8B00FF",
+    },
+    "naturaleza": {
+        "nombre": "Naturaleza",
+        "descripcion": "Plantas, flores, hojas y animales del bosque",
+        "color_base":    "#228B22",   # verde bosque
+        "color_muro":    "#6B8E23",   # verde oliva
+        "color_torre":   "#8FBC8F",   # verde claro
+        "color_unidad":  "#2E8B57",   # verde mar
+        "borde_color":   "#32CD32",
+    },
+}
+
+# Facciones elegidas por cada jugador (se asignan antes de iniciar el juego)
+estado_facciones = {"defensor": "medieval", "atacante": "oscuro"}
+
+
+
+
 # CLASES
 #zx
 class Elemento:
@@ -564,11 +604,10 @@ def iniciar_sesion():
 
         messagebox.showinfo(
             "Atacante registrado",
-            f"{usuario} será el Atacante.\n\n¡Comienza la partida!"
+            f"{usuario} será el Atacante.\n\n¡Ahora elijan sus facciones!"
         )
 
-        iniciar_juego()
-    
+        mostrar_pantalla_facciones()
     
 
 
@@ -586,6 +625,112 @@ def registrarse():
         entry_password.delete(0, tk.END)
     else:
         messagebox.showerror("Error", "El usuario ya existe")
+
+
+def mostrar_pantalla_facciones():
+    """Muestra una ventana emergente para que cada jugador elija su facción."""
+
+    ventana_facciones = tk.Toplevel(ventana)
+    ventana_facciones.title("Selección de Facciones")
+    ventana_facciones.geometry("700x520")
+    ventana_facciones.configure(bg=BG)
+    ventana_facciones.grab_set()  # Modal: bloquea la ventana principal
+
+    var_def = tk.StringVar(value="medieval")
+    var_atk = tk.StringVar(value="oscuro")
+
+    def confirmar_facciones():
+        fd = var_def.get()
+        fa = var_atk.get()
+        if fd == fa:
+            messagebox.showerror(
+                "Facciones iguales",
+                "El Defensor y el Atacante no pueden elegir la misma facción.\nElige una diferente.",
+                parent=ventana_facciones
+            )
+            return
+        estado_facciones["defensor"] = fd
+        estado_facciones["atacante"] = fa
+        ventana_facciones.destroy()
+        iniciar_juego()
+
+    tk.Label(
+        ventana_facciones,
+        text="⚔  Selección de Facciones  ⚔",
+        font=("Arial", 18, "bold"), fg="white", bg=BG
+    ).pack(pady=(20, 5))
+
+    tk.Label(
+        ventana_facciones,
+        text="El Defensor y el Atacante deben elegir facciones distintas.",
+        font=("Arial", 10), fg="#aaaaaa", bg=BG
+    ).pack(pady=(0, 15))
+
+    frame_cols = tk.Frame(ventana_facciones, bg=BG)
+    frame_cols.pack(fill=tk.BOTH, expand=True, padx=20)
+
+    def crear_columna_faccion(parent, titulo, var_seleccion, color_titulo):
+        col = tk.Frame(parent, bg=BG)
+        col.pack(side=tk.LEFT, fill=tk.BOTH, expand=True, padx=10)
+
+        tk.Label(col, text=titulo, font=("Arial", 13, "bold"),
+                 fg=color_titulo, bg=BG).pack(pady=(0, 10))
+
+        for clave, datos in FACCIONES.items():
+            frame_opcion = tk.Frame(col, bg="#2c2c2c", relief=tk.FLAT, bd=0)
+            frame_opcion.pack(fill=tk.X, pady=4)
+
+            rb = tk.Radiobutton(
+                frame_opcion,
+                text="  " + datos["nombre"],
+                value=clave,
+                variable=var_seleccion,
+                font=("Arial", 12, "bold"),
+                fg="white", bg="#2c2c2c",
+                selectcolor="#444444",
+                activebackground="#444444",
+                activeforeground="white",
+                indicatoron=True,
+                cursor="hand2",
+            )
+            rb.pack(anchor="w", padx=10, pady=4)
+
+            tk.Label(
+                frame_opcion,
+                text=datos["descripcion"],
+                font=("Arial", 9), fg="#aaaaaa", bg="#2c2c2c",
+                wraplength=240, justify="left"
+            ).pack(anchor="w", padx=28, pady=(0, 4))
+
+            frame_colores = tk.Frame(frame_opcion, bg="#2c2c2c")
+            frame_colores.pack(anchor="w", padx=28, pady=(0, 6))
+            muestras = [
+                (datos["color_base"], "Base"),
+                (datos["color_muro"], "Muros"),
+                (datos["color_torre"], "Torres"),
+                (datos["color_unidad"], "Unidades"),
+            ]
+            for color, etiqueta in muestras:
+                c = tk.Canvas(frame_colores, width=14, height=14, bg="#2c2c2c",
+                              highlightthickness=0)
+                c.create_rectangle(0, 0, 14, 14, fill=color, outline=datos["borde_color"])
+                c.pack(side=tk.LEFT, padx=2)
+                tk.Label(frame_colores, text=etiqueta, font=("Arial", 7),
+                         fg="#888888", bg="#2c2c2c").pack(side=tk.LEFT, padx=(0, 6))
+
+    crear_columna_faccion(frame_cols, "🛡️  " + str(usuario_defensor) + " (Defensor)", var_def, "#5599FF")
+    tk.Frame(frame_cols, bg="#444444", width=2).pack(side=tk.LEFT, fill=tk.Y, pady=10)
+    crear_columna_faccion(frame_cols, "⚔️  " + str(usuario_atacante) + " (Atacante)", var_atk, "#FF5555")
+
+    tk.Button(
+        ventana_facciones,
+        text="✔  Confirmar y Comenzar",
+        command=confirmar_facciones,
+        font=("Arial", 12, "bold"),
+        bg="#3a3a3a", fg="white",
+        activebackground="#555555", activeforeground="white",
+        relief=tk.FLAT, bd=0, cursor="hand2", padx=20, pady=8
+    ).pack(pady=20)
 
 
 def mostrar_top_jugadores():
@@ -684,6 +829,9 @@ gestor_usuarios = GestorUsuarios()
 usuario_defensor = None
 usuario_atacante = None
 
+# Facciones elegidas (pueden cambiar antes de cada partida)
+# estado_facciones se declaro al inicio del archivo
+
 # Jugadores
 defensor = Defensor("Defensor 1")
 atacante = Atacante("Atacante 1")
@@ -759,10 +907,57 @@ def cargar_imagenes():
         # Si no se cargó nada
         if not imagen_cargada:
             imagenes[elemento] = None
+
+    # ── Cargar imágenes de facciones (opcional) ──────────────────
+    # Si existen carpetas imagenes/elementos/oscuro/, imagenes/elementos/naturaleza/, etc.
+    # se cargan con clave "faccion_elemento" para ser usadas por dibujar_mapa
+    for nombre_faccion in FACCIONES:
+        if nombre_faccion == "medieval":
+            continue  # La facción medieval ya usa las imágenes base
+        for elemento in elementos:
+            clave = f"{nombre_faccion}_{elemento}"
+            ruta_faccion = os.path.join(ruta_base, nombre_faccion, f"{elemento}.png")
+            if os.path.exists(ruta_faccion):
+                try:
+                    imagenes[clave] = tk.PhotoImage(file=ruta_faccion)
+                except Exception:
+                    imagenes[clave] = None
+            else:
+                imagenes[clave] = None
                 
 
 
 # FUNCIONES DEL JUEGO
+
+def _obtener_faccion_objeto(objeto):
+    """Devuelve la faccion que controla el objeto dado."""
+    tipo = objeto.tipo
+    if tipo in ("soldado", "arquero", "mago"):
+        return estado_facciones["atacante"]
+    return estado_facciones["defensor"]
+
+
+def _dibujar_elemento_con_faccion(canvas_obj, x, y, objeto):
+    """Dibuja un elemento usando la imagen de su faccion. Si no existe la imagen, no dibuja nada."""
+    tipo = objeto.tipo
+    nombre_faccion = _obtener_faccion_objeto(objeto)
+
+    # Para medieval usa las imagenes base; para otras facciones busca primero
+    # la variante de faccion y si no existe cae en la imagen medieval.
+    if nombre_faccion == "medieval":
+        clave = tipo
+    else:
+        clave = f"{nombre_faccion}_{tipo}"
+
+    img = imagenes.get(clave) or imagenes.get(tipo)
+
+    if img is not None:
+        canvas_obj.create_image(
+            x + TAM_CELDA // 2,
+            y + TAM_CELDA // 2,
+            image=img
+        )
+
 
 def dibujar_mapa():
     #Dibuja el mapa con sprites PNG desde carpeta
@@ -792,13 +987,8 @@ def dibujar_mapa():
                 objeto = objetos_en_mapa[(fila, col)]
                 tipo = objeto.tipo
                 
-                # Mostrar imagen del sprite
-                if tipo in imagenes and imagenes[tipo] is not None:
-                    canvas.create_image(
-                        x + TAM_CELDA // 2,
-                        y + TAM_CELDA // 2,
-                        image=imagenes[tipo]
-                    )
+                # Dibujar con lógica de facción (imagen o fallback colorido)
+                _dibujar_elemento_con_faccion(canvas, x, y, objeto)
 
                 # Barra de vida (solo durante el combate)
                 if fase == "combate" and hasattr(objeto, "vida_maxima") and objeto.vida_maxima > 0:
@@ -1375,6 +1565,10 @@ def reiniciar_partida_completa():
     defensor.nombre = "Defensor 1"
     atacante.nombre = "Atacante 1"
 
+    # Resetear facciones a los valores por defecto
+    estado_facciones["defensor"] = "medieval"
+    estado_facciones["atacante"] = "oscuro"
+
     fase = "defensor_base"
     elemento_actual = None
     tipo_elemento_actual = None
@@ -1704,7 +1898,7 @@ ventana = tk.Tk()
 ventana.title("Avgrunnens Battle Royale")
 ventana.geometry("1400x900")
 ventana.state("zoomed")
-# Fondo oscuro para toda la ventana
+# Fondo oscuro (no negro puro) para toda la ventana
 BG = "#1a1a1a"
 ventana.configure(bg=BG)
 
@@ -1771,7 +1965,7 @@ def _redibujar_inicio():
                                    justify="center")
         cy = alto // 2
 
-    # Estilo de los botones de inicio
+    # Estilo monocromático para los botones de inicio
     estilo_btn = {
         "font": ("Arial", 14, "bold"),
         "bg": "#2c2c2c",
