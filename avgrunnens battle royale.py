@@ -223,11 +223,11 @@ class Defensor(Jugador):
         self.dinero_por_dano_ronda=self.dinero_por_dano_ronda+cantidad
         return cantidad
     def ganar_por_dañar_unidad(self, tipo_unidad):
-        #Gana dinero al dañar una unidad enemiga
+        #Gana dinero al dañar una unidad enemiga (igualado al atacante)
         recompensas = {
-            "Soldado": 30,
-            "Arquero": 60,
-            "Mago": 45
+            "Soldado": 10,
+            "Arquero": 20,
+            "Mago": 15
         }
         cantidad = recompensas.get(tipo_unidad, 0)
         self.dinero_por_dano_ronda=self.dinero_por_dano_ronda+cantidad
@@ -243,22 +243,22 @@ class Atacante(Jugador):
         self.dinero_por_dano_ronda = 0
     
     def ganar_por_dañar_torre(self, tipo_torre):
-        #Gana dinero por dañar una torre
+        #Gana dinero por dañar una torre (reducido para equilibrar)
         recompensas = {
-            "Torre Básica": 30,
-            "Torre Pesada": 60,
-            "Torre Mágica": 45
+            "Torre Básica": 10,
+            "Torre Pesada": 20,
+            "Torre Mágica": 15
         }
         cantidad = recompensas.get(tipo_torre, 0)
         self.dinero_por_dano_ronda=self.dinero_por_dano_ronda+cantidad
         return cantidad
     
     def ganar_por_destruir_torre(self, tipo_torre):
-        #Gana dinero por destruir una torre
+        #Gana dinero por destruir una torre (reducido para equilibrar)
         recompensas = {
-            "Torre Básica": 80,
-            "Torre Pesada": 150,
-            "Torre Mágica": 120
+            "Torre Básica": 50,
+            "Torre Pesada": 100,
+            "Torre Mágica": 75
         }
         cantidad = recompensas.get(tipo_torre, 0)
         self.dinero_por_dano_ronda=self.dinero_por_dano_ronda+cantidad
@@ -433,19 +433,24 @@ objetos_en_mapa = {}  # {(fila, col): objeto}
 
 # DICCIONARIO DE IMÁGENES
 imagenes = {}
+# Imagen de fondo de la matriz (se carga en cargar_imagenes)
+fondo_matriz_img = None
 
 
 
 # FUNCIONES DE CARGA DE IMÁGENES
 
 def cargar_imagenes():
-    #Carga imágenes PNG desde carpeta imagenes/elementos/
-    global imagenes
+    #Carga imágenes PNG desde carpeta imagenes/elementos/ y el fondo de la matriz
+    global imagenes, fondo_matriz_img
     
     ruta_base = "imagenes/elementos/"
     ruta_fondo = "imagenes/fondo/"
 
-    fondo = ["fondo"]
+    # Cargar fondo de la matriz
+    ruta_fondo_png = os.path.join(ruta_fondo, "fondo.png")
+    if os.path.exists(ruta_fondo_png):
+        fondo_matriz_img = tk.PhotoImage(file=ruta_fondo_png)
     
     elementos = [
         "muro",
@@ -484,8 +489,8 @@ def dibujar_mapa():
     #Dibuja el mapa con sprites PNG desde carpeta
     canvas.delete("all")
     
-    if fondo_img is not None:
-        canvas.create_image(0, 0, anchor = 'nw', image=fondo_img)
+    if fondo_matriz_img is not None:
+        canvas.create_image(0, 0, anchor='nw', image=fondo_matriz_img)
     else:
         canvas.create_rectangle(0, 0, ANCHO * TAM_CELDA, ALTO * TAM_CELDA, fill="#eeeeee", outline="")
     
@@ -515,18 +520,6 @@ def dibujar_mapa():
                         y + TAM_CELDA // 2,
                         image=imagenes[tipo]
                     )
-                else:
-                    # Si no hay imagen, dibujar un rectángulo de color según el tipo
-                    colores = {
-                        "muro": "#8B4513", "torre_basica": "#696969",
-                        "torre_pesada": "#404040", "torre_magica": "#9370DB",
-                        "soldado": "#FF6347", "arquero": "#DC143C",
-                        "mago": "#FF8C00", "base": "#FFD700"
-                    }
-                    color = colores.get(tipo, "#AAAAAA")
-                    canvas.create_rectangle(x+3, y+3, x+TAM_CELDA-3, y+TAM_CELDA-3, fill=color, outline="white")
-                    canvas.create_text(x + TAM_CELDA//2, y + TAM_CELDA//2,
-                                       text=objeto.nombre[:3], fill="white", font=("Arial", 7, "bold"))
 
                 # Barra de vida (solo durante el combate)
                 if fase == "combate" and hasattr(objeto, "vida_maxima") and objeto.vida_maxima > 0:
@@ -546,24 +539,24 @@ def dibujar_mapa():
 def actualizar_labels():
     #Actualiza los labels de fase y dinero
     if fase == "defensor_base":
-        label_fase.config(text=f"RONDA {ronda_actual} — FASE: Defensor coloca BASE")
-        label_dinero.config(text=f"Dinero Defensor: ${defensor.dinero}")
+        label_fase.config(text=f"RONDA {ronda_actual} — FASE: Defensor coloca BASE", fg="#aaaaaa")
+        label_dinero.config(text=f"Dinero Defensor: ${defensor.dinero}", fg="#cccccc")
     elif fase == "defensor_defensas":
-        label_fase.config(text=f"RONDA {ronda_actual} — FASE: Defensor coloca MUROS y TORRES")
-        label_dinero.config(text=f"Dinero Defensor: ${defensor.dinero}")
+        label_fase.config(text=f"RONDA {ronda_actual} — FASE: Defensor coloca MUROS y TORRES", fg="#aaaaaa")
+        label_dinero.config(text=f"Dinero Defensor: ${defensor.dinero}", fg="#cccccc")
     elif fase == "atacante_unidades":
-        label_fase.config(text=f"RONDA {ronda_actual} — FASE: Atacante coloca UNIDADES")
-        label_dinero.config(text=f"Dinero Atacante: ${atacante.dinero}")
+        label_fase.config(text=f"RONDA {ronda_actual} — FASE: Atacante coloca UNIDADES", fg="#aaaaaa")
+        label_dinero.config(text=f"Dinero Atacante: ${atacante.dinero}", fg="#cccccc")
         label_estado.config(
             text=f"Marcador → Defensor: {victorias_defensor}  |  Atacante: {victorias_atacante}",
-            fg="#8B0000"
+            fg="#e0e0e0"
         )
     elif fase == "combate":
-        label_fase.config(text=f"RONDA {ronda_actual} — COMBATE — Turno {turno_combate}", fg="#B71C1C")
-        label_dinero.config(text=f"Defensor: ${defensor.dinero}  |  Atacante: ${atacante.dinero}")
+        label_fase.config(text=f"RONDA {ronda_actual} — COMBATE — Turno {turno_combate}", fg="#e57373")
+        label_dinero.config(text=f"Defensor: ${defensor.dinero}  |  Atacante: ${atacante.dinero}", fg="#cccccc")
         label_estado.config(
             text=f"Marcador → Defensor: {victorias_defensor}  |  Atacante: {victorias_atacante}",
-            fg="#8B0000"
+            fg="#e0e0e0"
         )
 
 
@@ -574,68 +567,68 @@ def limpiar_botones():
 
 
 def crear_botones():
-    #Crea los botones según la fase actual
+    #Crea los botones según la fase actual en estilo monocromático
     limpiar_botones()
+
+    # Estilo base para todos los botones de acción
+    s = {
+        "font": ("Arial", 10, "bold"),
+        "bg": "#2c2c2c",
+        "fg": "white",
+        "activebackground": "#484848",
+        "activeforeground": "white",
+        "relief": tk.FLAT,
+        "bd": 0,
+        "cursor": "hand2",
+    }
     
     if fase == "defensor_base":
-        btn = tk.Button(frame_botones_accion, text="Colocar Base", 
-                       command=lambda: seleccionar_elemento("base", "Base Central"), 
-                       bg="#FFD700", width=12)
+        btn = tk.Button(frame_botones_accion, text="Colocar Base",
+                       command=lambda: seleccionar_elemento("base", "Base Central"),
+                       width=14, **s)
         btn.pack(side=tk.LEFT, padx=5)
     
     elif fase == "defensor_defensas":
-        btn0 = tk.Button(frame_botones_accion, text="Muro ($50)", 
-                        command=lambda: seleccionar_elemento("muro", "Muro"), 
-                        bg="#8B4513", fg="white", width=10)
+        btn0 = tk.Button(frame_botones_accion, text="Muro  $50",
+                        command=lambda: seleccionar_elemento("muro", "Muro"),
+                        width=12, **s)
         btn0.pack(side=tk.LEFT, padx=3)
-        
-        btn1 = tk.Button(frame_botones_accion, text="Torre Básica ($100)", 
-                        command=lambda: seleccionar_elemento("torre", "Torre Básica"), 
-                        bg="#696969", fg="white", width=15)
+        btn1 = tk.Button(frame_botones_accion, text="Torre Básica  $100",
+                        command=lambda: seleccionar_elemento("torre", "Torre Básica"),
+                        width=18, **s)
         btn1.pack(side=tk.LEFT, padx=3)
-        
-        btn2 = tk.Button(frame_botones_accion, text="Torre Pesada ($200)", 
-                        command=lambda: seleccionar_elemento("torre", "Torre Pesada"), 
-                        bg="#404040", fg="white", width=15)
+        btn2 = tk.Button(frame_botones_accion, text="Torre Pesada  $200",
+                        command=lambda: seleccionar_elemento("torre", "Torre Pesada"),
+                        width=18, **s)
         btn2.pack(side=tk.LEFT, padx=3)
-        
-        btn3 = tk.Button(frame_botones_accion, text="Torre Mágica ($150)", 
-                        command=lambda: seleccionar_elemento("torre", "Torre Mágica"), 
-                        bg="#9370DB", fg="white", width=15)
+        btn3 = tk.Button(frame_botones_accion, text="Torre Mágica  $150",
+                        command=lambda: seleccionar_elemento("torre", "Torre Mágica"),
+                        width=18, **s)
         btn3.pack(side=tk.LEFT, padx=3)
     
     elif fase == "atacante_unidades":
-        btn1 = tk.Button(frame_botones_accion, text="Soldado ($75)", 
-                        command=lambda: seleccionar_elemento("unidad", "Soldado"), 
-                        bg="#FF6347", fg="white", width=12)
+        btn1 = tk.Button(frame_botones_accion, text="Soldado  $75",
+                        command=lambda: seleccionar_elemento("unidad", "Soldado"),
+                        width=14, **s)
         btn1.pack(side=tk.LEFT, padx=3)
-        
-        btn2 = tk.Button(frame_botones_accion, text="Arquero ($100)", 
-                        command=lambda: seleccionar_elemento("unidad", "Arquero"), 
-                        bg="#DC143C", fg="white", width=12)
+        btn2 = tk.Button(frame_botones_accion, text="Arquero  $100",
+                        command=lambda: seleccionar_elemento("unidad", "Arquero"),
+                        width=14, **s)
         btn2.pack(side=tk.LEFT, padx=3)
-        
-        btn3 = tk.Button(frame_botones_accion, text="Mago ($120)", 
-                        command=lambda: seleccionar_elemento("unidad", "Mago"), 
-                        bg="#FF8C00", fg="white", width=12)
+        btn3 = tk.Button(frame_botones_accion, text="Mago  $120",
+                        command=lambda: seleccionar_elemento("unidad", "Mago"),
+                        width=14, **s)
         btn3.pack(side=tk.LEFT, padx=3)
     
     elif fase == "combate":
-        # Durante el combate solo se muestra el botón de iniciar (se deshabilita al comenzar)
+        # Botón de iniciar combate (se deshabilita al comenzar)
         btn_combate = tk.Button(frame_botones_accion,
                                 text="Iniciar Combate",
                                 command=iniciar_combate,
-                                bg="#B71C1C", fg="white",
-                                font=("Arial", 11, "bold"), width=16)
-        btn_combate.pack(side=tk.LEFT, padx=10)
-    
-    elif fase == "combate":
-        # Botón para resolver el combate y determinar el ganador de la ronda
-        btn_combate = tk.Button(frame_botones_accion,
-                                text="Iniciar Combate",
-                                command=finalizar_fase_combate,
-                                bg="#B71C1C", fg="white",
-                                font=("Arial", 11, "bold"), width=16)
+                                font=("Arial", 11, "bold"),
+                                bg="#3a3a3a", fg="white",
+                                activebackground="#555555", activeforeground="white",
+                                relief=tk.FLAT, bd=0, width=18, cursor="hand2")
         btn_combate.pack(side=tk.LEFT, padx=10)
 
 
@@ -916,6 +909,10 @@ def verificar_ganador_ronda():
     if defensor.base is None:
         return "atacante"
 
+    # Defensor gana si no quedan unidades enemigas (aunque sea por torres)
+    if len(atacante.unidades) == 0 and defensor.base is not None:
+        return "defensor"
+
     # Defensor gana si el atacante no tiene dinero, no tiene unidades y la base sigue viva
     if atacante.dinero <= 0 and len(atacante.unidades) == 0 and defensor.base is not None:
         return "defensor"
@@ -983,6 +980,61 @@ def terminar_partida(ganador):
                         f"{mensaje}\n\n"
                         f"Resultado: Defensor {victorias_defensor} - Atacante {victorias_atacante}\n\n"
                         f"Registro de victorias:\n{historial}")
+
+    # Preguntar si quieren jugar otra partida
+    jugar_otra = messagebox.askyesno("¿Otra partida?", "¿Quieren jugar una nueva partida?")
+    if jugar_otra:
+        reiniciar_partida_completa()
+    else:
+        # Volver a la pantalla de inicio
+        reiniciar_partida_completa()
+        mostrar_pantalla_inicio()
+
+
+def reiniciar_partida_completa():
+    #Reinicia todo para una nueva partida desde cero
+    global victorias_defensor, victorias_atacante, resultado_rondas, ronda_actual
+    global fase, elemento_actual, tipo_elemento_actual, objetos_en_mapa, matriz
+    global turno_combate, log_combate, combate_en_curso
+
+    # Resetear marcador y rondas
+    victorias_defensor = 0
+    victorias_atacante = 0
+    resultado_rondas = []
+    ronda_actual = 1
+
+    # Resetear dinero de jugadores al inicial
+    defensor.dinero = 500
+    atacante.dinero = 500
+    defensor.dinero_por_dano_ronda = 0
+    atacante.dinero_por_dano_ronda = 0
+
+    # Limpiar mapa
+    objetos_en_mapa = {}
+    for f in range(ALTO):
+        for c in range(ANCHO):
+            matriz[f][c] = 0
+
+    # Resetear jugadores
+    defensor.base = None
+    defensor.defensas = []
+    atacante.unidades = []
+
+    # Resetear combate
+    turno_combate = 0
+    log_combate = []
+    combate_en_curso = False
+
+    # Volver al inicio
+    fase = "defensor_base"
+    elemento_actual = None
+    tipo_elemento_actual = None
+
+    cancelar_elemento()
+    actualizar_labels()
+    crear_botones()
+    label_estado.config(text="¡Nueva partida! El Defensor coloca su Base.")
+    dibujar_mapa()
 
 
 # ── SISTEMA DE COMBATE ANIMADO ─────────────────────────────────
@@ -1081,6 +1133,8 @@ def fase_torres(msgs):
             for _ in range(veces):
                 if objetivo.vida > 0:
                     objetivo.vida -= torre.daño
+                    # Defensor gana dinero por dañar la unidad
+                    defensor.ganar_por_dañar_unidad(objetivo.nombre)
                     msgs.append(f"Torre Básica → {objetivo.nombre}: -{torre.daño} vida ({max(0,objetivo.vida)} restante)")
 
         # Torre Pesada: Daño en Área cada turnos_habilidad turnos
@@ -1092,15 +1146,21 @@ def fase_torres(msgs):
                 for u in list(atacante.unidades):
                     if distancia(torre, u) <= 3:
                         u.vida -= torre.daño
+                        # Defensor gana dinero por dañar cada unidad en área
+                        defensor.ganar_por_dañar_unidad(u.nombre)
                         msgs.append(f"{u.nombre}: -{torre.daño} vida ({max(0,u.vida)} restante)")
             else:
                 objetivo.vida -= torre.daño
+                # Defensor gana dinero por dañar la unidad
+                defensor.ganar_por_dañar_unidad(objetivo.nombre)
                 msgs.append(f"Torre Pesada → {objetivo.nombre}: -{torre.daño} vida ({max(0,objetivo.vida)} restante)")
 
         # Torre Mágica: ataca y cada turnos_habilidad turnos congela
         elif torre.tipo == "torre_magica":
             torre.turnos_restantes += 1
             objetivo.vida -= torre.daño
+            # Defensor gana dinero por dañar la unidad
+            defensor.ganar_por_dañar_unidad(objetivo.nombre)
             msgs.append(f"Torre Mágica → {objetivo.nombre}: -{torre.daño} vida ({max(0,objetivo.vida)} restante)")
             if torre.turnos_restantes >= torre.turnos_habilidad:
                 torre.turnos_restantes = 0
@@ -1246,7 +1306,7 @@ def ejecutar_turno():
     log_combate.extend(msgs)
 
     # Mostrar los últimos 5 mensajes en pantalla
-    label_estado.config(text="\n".join(log_combate[-5:]), fg="#1a1a1a")
+    label_estado.config(text="\n".join(log_combate[-5:]), fg="#e0e0e0")
     label_fase.config(text=f"RONDA {ronda_actual} — COMBATE — Turno {turno_combate}", fg="#B71C1C")
     label_dinero.config(text=f"Defensor: ${defensor.dinero}  |  Atacante: ${atacante.dinero}")
 
@@ -1286,76 +1346,183 @@ ventana = tk.Tk()
 ventana.title("Avgrunnens Battle Royale")
 ventana.geometry("1400x900")
 ventana.state("zoomed")
+# Fondo oscuro (no negro puro) para toda la ventana
+BG = "#1a1a1a"
+ventana.configure(bg=BG)
 
+# ── PANTALLA DE INICIO ─────────────────────────────────────────
+
+# Frame de la pantalla de inicio (ocupa toda la ventana)
+frame_inicio = tk.Frame(ventana, bg=BG)
+frame_inicio.pack(fill=tk.BOTH, expand=True)
+
+# Canvas para el fondo de la pantalla de inicio
+canvas_inicio = tk.Canvas(frame_inicio, bg=BG, highlightthickness=0)
+canvas_inicio.pack(fill=tk.BOTH, expand=True)
+
+# Cargar fondo de la pantalla de inicio desde imagenes/fondo/inicio.png
+fondo_inicio_img = None
 try:
-    fondo_img = tk.PhotoImage(file='fondo.png')
+    ruta_inicio = os.path.join("imagenes", "fondo", "inicio.png")
+    if os.path.exists(ruta_inicio):
+        fondo_inicio_img = tk.PhotoImage(file=ruta_inicio)
 except:
-    fondo_img = None
+    fondo_inicio_img = None
+
+# Cargar imagen del título desde imagenes/titulo/titulo.png
+titulo_img = None
+try:
+    ruta_titulo = os.path.join("imagenes", "titulo", "titulo.png")
+    if os.path.exists(ruta_titulo):
+        titulo_img = tk.PhotoImage(file=ruta_titulo)
+except:
+    titulo_img = None
+
+def mostrar_pantalla_inicio():
+    #Muestra la pantalla de inicio y oculta el juego
+    frame_juego.pack_forget()
+    frame_inicio.pack(fill=tk.BOTH, expand=True)
+    # Forzar que la ventana calcule su tamaño real antes de dibujar
+    ventana.update_idletasks()
+    _redibujar_inicio()
+    # Redibujar si el usuario redimensiona la ventana
+    canvas_inicio.bind("<Configure>", lambda e: _redibujar_inicio())
+
+def _redibujar_inicio():
+    #Redibuja el contenido del canvas de inicio centrado
+    canvas_inicio.delete("all")
+    ancho = canvas_inicio.winfo_width() or 1400
+    alto = canvas_inicio.winfo_height() or 900
+
+    # Fondo
+    if fondo_inicio_img is not None:
+        canvas_inicio.create_image(0, 0, anchor="nw", image=fondo_inicio_img)
+    else:
+        canvas_inicio.create_rectangle(0, 0, ancho, alto, fill=BG, outline="")
+
+    cx = ancho // 2
+    # Título: imagen PNG si existe, texto como fallback
+    if titulo_img is not None:
+        canvas_inicio.create_image(cx, alto // 4, anchor="center", image=titulo_img)
+        cy = alto // 2
+    else:
+        canvas_inicio.create_text(cx, alto // 4,
+                                   text="Avgrunnens\nBattle Royale",
+                                   font=("Arial", 36, "bold"), fill="white",
+                                   justify="center")
+        cy = alto // 2
+
+    # Estilo monocromático para los botones de inicio
+    estilo_btn = {
+        "font": ("Arial", 14, "bold"),
+        "bg": "#2c2c2c",
+        "fg": "white",
+        "activebackground": "#444444",
+        "activeforeground": "white",
+        "relief": tk.FLAT,
+        "bd": 0,
+        "width": 18,
+        "cursor": "hand2",
+    }
+    btn_jugar = tk.Button(canvas_inicio, text="JUGAR", command=iniciar_juego, **estilo_btn)
+    canvas_inicio.create_window(cx, cy, window=btn_jugar)
+
+    btn_top_inicio = tk.Button(canvas_inicio, text="Top Jugadores",
+                               command=mostrar_top_jugadores, **estilo_btn)
+    canvas_inicio.create_window(cx, cy + 60, window=btn_top_inicio)
+
+    btn_salir = tk.Button(canvas_inicio, text="Salir",
+                          command=ventana.quit, **estilo_btn)
+    canvas_inicio.create_window(cx, cy + 120, window=btn_salir)
+
+def iniciar_juego():
+    #Oculta el inicio y muestra el juego
+    frame_inicio.pack_forget()
+    frame_juego.pack(fill=tk.BOTH, expand=True)
+    actualizar_labels()
+    crear_botones()
+    dibujar_mapa()
+
+# ── FRAME DEL JUEGO ────────────────────────────────────────────
+
+# Todo el juego vive dentro de este frame (oculto hasta que se presione Jugar)
+frame_juego = tk.Frame(ventana, bg=BG)
 
 # Frame superior con información
-frame_info = tk.Frame(ventana)
+frame_info = tk.Frame(frame_juego, bg=BG)
 frame_info.pack(side=tk.TOP, fill=tk.X, padx=10, pady=5)
 
-label_fase = tk.Label(frame_info, text="", font=("Arial", 12, "bold"), fg="#2E7D32")
+label_fase = tk.Label(frame_info, text="", font=("Arial", 12, "bold"), fg="#aaaaaa", bg=BG)
 label_fase.pack(anchor=tk.W)
 
-label_dinero = tk.Label(frame_info, text="", font=("Arial", 11), fg="#1565C0")
+label_dinero = tk.Label(frame_info, text="", font=("Arial", 11, "bold"), fg="#cccccc", bg=BG)
 label_dinero.pack(anchor=tk.W)
 
-label_estado = tk.Label(frame_info, text="", font=("Arial", 10))
+label_estado = tk.Label(frame_info, text="", font=("Arial", 10, "bold"), bg=BG, fg="#e0e0e0")
 label_estado.pack(anchor=tk.W)
 
 # Canvas del mapa
 canvas = tk.Canvas(
-    ventana,
+    frame_juego,
     width=ANCHO * TAM_CELDA,
     height=ALTO * TAM_CELDA,
-    bg="black",
+    bg=BG,
     cursor="cross",
-    relief=tk.SUNKEN,
-    bd=2
+    relief=tk.FLAT,
+    bd=0
 )
 canvas.pack(padx=10, pady=10)
 canvas.bind("<Button-1>", on_canvas_click)
 canvas.bind("<Button-3>", on_canvas_right_click)
 
 # Frame inferior con botones
-frame_botones = tk.Frame(ventana)
+frame_botones = tk.Frame(frame_juego, bg=BG)
 frame_botones.pack(side=tk.BOTTOM, fill=tk.X, padx=10, pady=10)
 
-frame_botones_accion = tk.Frame(frame_botones)
+frame_botones_accion = tk.Frame(frame_botones, bg=BG)
 frame_botones_accion.pack(side=tk.LEFT, fill=tk.X, expand=True)
 
 # Frame botones de utilidad
-frame_botones_util = tk.Frame(frame_botones)
+frame_botones_util = tk.Frame(frame_botones, bg=BG)
 frame_botones_util.pack(side=tk.RIGHT)
 
-btn_siguiente = tk.Button(frame_botones_util, text="Siguiente", command=siguiente_fase, 
-                         font=("Arial", 10, "bold"), bg="#4CAF50", fg="white", width=12)
+# Estilo monocromático para los botones de la partida
+ESTILO_BTN_UTIL = {
+    "font": ("Arial", 9, "bold"),
+    "bg": "#2c2c2c",
+    "fg": "white",
+    "activebackground": "#444444",
+    "activeforeground": "white",
+    "relief": tk.FLAT,
+    "bd": 0,
+    "width": 12,
+    "cursor": "hand2",
+}
+
+btn_siguiente = tk.Button(frame_botones_util, text="Siguiente", command=siguiente_fase,
+                          font=("Arial", 10, "bold"), bg="#3a3a3a", fg="white",
+                          activebackground="#555555", activeforeground="white",
+                          relief=tk.FLAT, bd=0, width=12, cursor="hand2")
 btn_siguiente.pack(side=tk.LEFT, padx=5)
 
-btn_cancelar = tk.Button(frame_botones_util, text="Cancelar", command=cancelar_elemento, 
-                        font=("Arial", 9), bg="#f44336", fg="white", width=12)
+btn_cancelar = tk.Button(frame_botones_util, text="Cancelar", command=cancelar_elemento,
+                         **ESTILO_BTN_UTIL)
 btn_cancelar.pack(side=tk.LEFT, padx=2)
 
-btn_torres = tk.Button(frame_botones_util, text="Info Torres", command=mostrar_info_torres, 
-                      font=("Arial", 9), bg="#FF9800", fg="white", width=12)
+btn_torres = tk.Button(frame_botones_util, text="Info Torres", command=mostrar_info_torres,
+                       **ESTILO_BTN_UTIL)
 btn_torres.pack(side=tk.LEFT, padx=2)
 
-btn_unidades = tk.Button(frame_botones_util, text="Info Unidades", command=mostrar_info_unidades, 
-                        font=("Arial", 9), bg="#2196F3", fg="white", width=12)
+btn_unidades = tk.Button(frame_botones_util, text="Info Unidades", command=mostrar_info_unidades,
+                         **ESTILO_BTN_UTIL)
 btn_unidades.pack(side=tk.LEFT, padx=2)
 
-btn_top = tk.Button(frame_botones_util, text="Top", command=mostrar_top_jugadores,
-                    font=("Arial", 9), bg="#9C27B0", fg="white", width=12)
-btn_top.pack(side=tk.LEFT, padx=2)
+
 
 # Cargar imágenes desde carpeta
 cargar_imagenes()
 
-# Iniciar
-actualizar_labels()
-crear_botones()
-dibujar_mapa()
+# Mostrar pantalla de inicio al arrancar
+mostrar_pantalla_inicio()
 
 ventana.mainloop()
