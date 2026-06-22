@@ -196,5 +196,5 @@ Estos archivos no deben borrarse si quieres conservar el historial de partidas y
 
 Desarrollado como proyecto del curso de Programación — 2025.
 
-**Estudiante 1** — [nombre]  
-**Estudiante 2** — [nombre]
+**Stephano Thomas Jarquín Quesada - 2026086055**
+**Jeffry Leonardo Rojas Arias - 2023800057**
